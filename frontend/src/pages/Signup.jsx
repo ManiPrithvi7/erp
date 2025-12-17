@@ -7,21 +7,22 @@ import useLanguage from '@/locale/useLanguage';
 
 import { Form, Button } from 'antd';
 
-import { login } from '@/redux/auth/actions';
+import { register } from '@/redux/auth/actions';
 import { selectAuth } from '@/redux/auth/selectors';
-import LoginForm from '@/forms/LoginForm';
+import SignupForm from '@/forms/SignupForm';
 import Loading from '@/components/Loading';
 import AuthModule from '@/modules/AuthModule';
 
-const LoginPage = () => {
+const SignupPage = () => {
   const translate = useLanguage();
   const { isLoading, isLoggedIn } = useSelector(selectAuth);
   const navigate = useNavigate();
-  // const size = useSize();
 
   const dispatch = useDispatch();
   const onFinish = (values) => {
-    dispatch(login({ loginData: values }));
+    // Remove confirmPassword before sending to backend
+    const { confirmPassword, ...registerData } = values;
+    dispatch(register({ registerData }));
   };
 
   useEffect(() => {
@@ -33,32 +34,27 @@ const LoginPage = () => {
       <Loading isLoading={isLoading}>
         <Form
           layout="vertical"
-          name="normal_login"
-          className="login-form"
-          initialValues={{
-            remember: true,
-            email:'admin@admin.com',
-            password:'admin123',
-          }}
+          name="normal_signup"
+          className="signup-form"
           onFinish={onFinish}
         >
-          <LoginForm />
+          <SignupForm />
           <Form.Item>
             <Button
               type="primary"
               htmlType="submit"
-              className="login-form-button"
+              className="signup-form-button"
               loading={isLoading}
               size="large"
               block
             >
-              {translate('Log in')}
+              {translate('Sign up')}
             </Button>
           </Form.Item>
           <Form.Item>
             <div style={{ textAlign: 'center' }}>
-              {translate("Don't have an account?")}{' '}
-              <Link to="/signup">{translate('Sign up')}</Link>
+              {translate('Already have an account?')}{' '}
+              <Link to="/login">{translate('Log in')}</Link>
             </div>
           </Form.Item>
         </Form>
@@ -66,7 +62,9 @@ const LoginPage = () => {
     );
   };
 
-  return <AuthModule authContent={<FormContainer />} AUTH_TITLE="Sign in" />;
+  return <AuthModule authContent={<FormContainer />} AUTH_TITLE="Sign up" isForRegistre={true} />;
 };
 
-export default LoginPage;
+export default SignupPage;
+
+

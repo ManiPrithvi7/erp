@@ -7,20 +7,44 @@ function useFetchData(fetchFunction) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let isMounted = true;
+    
     async function fetchData() {
       try {
-        const data = await fetchFunction();
-        setData(data.result);
-        setSuccess(true);
+        setLoading(true);
+        setSuccess(false);
+        setError(null);
+        const response = await fetchFunction();
+        
+        if (isMounted) {
+          // Handle both success and error responses from request utility
+          if (response && response.success === true && response.result) {
+            setData(response.result);
+            setSuccess(true);
+          } else {
+            // API returned error response
+            setError(response?.message || 'Failed to fetch data');
+            setSuccess(false);
+          }
+        }
       } catch (error) {
-        setError(error);
+        if (isMounted) {
+          setError(error);
+          setSuccess(false);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
     fetchData();
-  }, [isLoading]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Run only once on mount
 
   return { data, isLoading, isSuccess, error };
 }

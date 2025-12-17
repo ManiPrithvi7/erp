@@ -27,10 +27,15 @@ const SelectAsync = ({
   const asyncList = () => {
     return request.list({ entity });
   };
-  const { result, isLoading: fetchIsLoading, isSuccess } = useFetch(asyncList);
+  const { result, isLoading: fetchIsLoading, isSuccess, error } = useFetch(asyncList);
   useEffect(() => {
-    isSuccess && setOptions(result);
-  }, [isSuccess]);
+    if (isSuccess && result) {
+      setOptions(Array.isArray(result) ? result : []);
+    } else if (error) {
+      // If API call fails, set empty array to prevent blocking
+      setOptions([]);
+    }
+  }, [isSuccess, result, error]);
 
   const labels = (optionField) => {
     return displayLabels.map((x) => optionField[x]).join(' ');

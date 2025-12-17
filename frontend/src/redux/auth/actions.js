@@ -39,9 +39,25 @@ export const register =
     const data = await authService.register({ registerData });
 
     if (data.success === true) {
+      // If signup returns user data and token, automatically log them in
+      if (data.result && data.result.token) {
+        const auth_state = {
+          current: data.result,
+          isLoggedIn: true,
+          isLoading: false,
+          isSuccess: true,
+        };
+        window.localStorage.setItem('auth', JSON.stringify(auth_state));
+        window.localStorage.removeItem('isLogout');
+        dispatch({
+          type: actionTypes.REQUEST_SUCCESS,
+          payload: data.result,
+        });
+      } else {
       dispatch({
         type: actionTypes.REGISTER_SUCCESS,
       });
+      }
     } else {
       dispatch({
         type: actionTypes.REQUEST_FAILED,

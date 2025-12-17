@@ -39,7 +39,10 @@ export default function ErpCrmApp() {
 
   // const appSettings = useSelector(selectAppSettings);
 
-  const { isSuccess: settingIsloaded } = useSelector(selectSettings);
+  const { isSuccess: settingIsloaded, isLoading: settingsLoading } = useSelector(selectSettings);
+
+  // Check if settings exist in localStorage as fallback
+  const settingsFromStorage = storePersist.get('settings');
 
   // useEffect(() => {
   //   const { loadDefaultLang } = storePersist.get('firstVisit');
@@ -48,7 +51,14 @@ export default function ErpCrmApp() {
   //   }
   // }, [appSettings]);
 
-  if (settingIsloaded)
+  // Render app if:
+  // 1. Settings are successfully loaded, OR
+  // 2. Settings exist in localStorage (cached), OR
+  // 3. Settings loading has failed (don't block the app)
+  // Only show loader if settings are actively loading and we don't have cached settings
+  const shouldRenderApp = settingIsloaded || settingsFromStorage || (!settingsLoading && !settingIsloaded);
+
+  if (shouldRenderApp) {
     return (
       <Layout hasSider>
         <Navigation />
@@ -86,5 +96,8 @@ export default function ErpCrmApp() {
         )}
       </Layout>
     );
-  else return <PageLoader />;
+  } else {
+    // Show loader only while actively loading settings for the first time
+    return <PageLoader />;
+  }
 }

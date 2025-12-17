@@ -28,7 +28,10 @@ export const login = async ({ loginData }) => {
 
 export const register = async ({ registerData }) => {
   try {
-    const response = await axios.post(API_BASE_URL + `register`, registerData);
+    const response = await axios.post(
+      API_BASE_URL + `signup?timestamp=${new Date().getTime()}`,
+      registerData
+    );
 
     const { status, data } = response;
 

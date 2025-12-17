@@ -1,0 +1,588 @@
+# IDURAR ERP CRM - Cursor Rules
+
+## Project Overview
+This is a MERN stack ERP/CRM application built with:
+- **Backend**: Node.js, Express.js, MongoDB, Mongoose
+- **Frontend**: React 18, Redux Toolkit, Ant Design (AntD), Vite
+- **Architecture**: Monorepo structure with separate backend and frontend directories
+- **Future**: Migrating to TypeScript
+
+---
+
+## Project Structure
+
+### Backend Structure (`/backend/src/`)
+```
+backend/src/
+├── app.js                    # Express app configuration
+├── server.js                 # Server entry point
+├── controllers/
+│   ├── appControllers/       # Business logic controllers (Invoice, Payment, Quote, etc.)
+│   ├── coreControllers/      # Core system controllers (Admin, Settings, Auth)
+│   ├── middlewaresControllers/ # Reusable controller factories
+│   └── pdfController/        # PDF generation controllers
+├── models/
+│   ├── appModels/            # Business domain models (Invoice, Client, Payment, etc.)
+│   └── coreModels/           # Core system models (Admin, Setting, Upload)
+├── routes/
+│   ├── appRoutes/            # Business entity routes
+│   └── coreRoutes/           # Core system routes
+├── middlewares/              # Express middlewares
+├── handlers/                 # Error handlers and download handlers
+├── utils/                    # Utility functions
+├── settings/                 # Application settings
+└── setup/                    # Initial setup scripts
+```
+
+### Frontend Structure (`/frontend/src/`)
+```
+frontend/src/
+├── apps/                     # Main application containers
+├── pages/                    # Route-level page components
+├── modules/                   # Feature modules (InvoiceModule, PaymentModule, etc.)
+├── components/               # Reusable UI components
+├── forms/                    # Form components
+├── layout/                   # Layout components
+├── redux/                    # Redux store, reducers, actions, selectors
+├── context/                  # React Context providers
+├── hooks/                    # Custom React hooks
+├── router/                   # Routing configuration
+├── request/                  # API request utilities
+├── utils/                    # Utility functions
+├── locale/                   # Internationalization
+└── settings/                 # Frontend settings
+```
+
+---
+
+## Code Quality Standards
+
+### General Principles
+1. **Consistency**: Follow existing patterns and conventions strictly
+2. **Readability**: Write clear, self-documenting code
+3. **Modularity**: Keep components and functions focused and single-purpose
+4. **Error Handling**: Always handle errors gracefully with proper user feedback
+5. **Type Safety**: When migrating to TypeScript, use strict types and avoid `any`
+
+### Naming Conventions
+
+#### Backend (JavaScript/TypeScript)
+- **Files**: `camelCase.js` or `camelCase.ts` (e.g., `invoiceController.js`)
+- **Models**: `PascalCase` (e.g., `Invoice`, `Client`, `Payment`)
+- **Controllers**: `camelCase` with `Controller` suffix (e.g., `invoiceController`)
+- **Functions**: `camelCase` (e.g., `createInvoice`, `validateSchema`)
+- **Constants**: `UPPER_SNAKE_CASE` (e.g., `API_BASE_URL`)
+- **Routes**: `kebab-case` (e.g., `/api/invoice/create`)
+
+#### Frontend (JavaScript/TypeScript)
+- **Components**: `PascalCase` (e.g., `DataTable`, `LoginForm`)
+- **Files**: Match component name (e.g., `DataTable.jsx` → `DataTable.tsx`)
+- **Hooks**: `camelCase` with `use` prefix (e.g., `useFetch`, `useDebounce`)
+- **Redux**: 
+  - Actions: `camelCase` (e.g., `login`, `register`)
+  - Types: `UPPER_SNAKE_CASE` (e.g., `REQUEST_LOADING`, `REQUEST_SUCCESS`)
+  - Selectors: `select` prefix (e.g., `selectAuth`, `selectListItems`)
+- **Context**: `camelCase` with `Context` suffix (e.g., `CrudContext`, `AppContext`)
+
+---
+
+## Backend Patterns
+
+### Model Definition
+```javascript
+// Use Mongoose schemas with proper validation
+const mongoose = require('mongoose');
+
+const schema = new mongoose.Schema({
+  removed: { type: Boolean, default: false },
+  createdBy: { type: mongoose.Schema.ObjectId, ref: 'Admin', required: true },
+  // ... other fields
+  created: { type: Date, default: Date.now },
+  updated: { type: Date, default: Date.now },
+});
+
+module.exports = mongoose.model('ModelName', schema);
+```
+
+### Controller Pattern
+```javascript
+// Controllers should:
+// 1. Validate input using Joi schemas
+// 2. Use catchErrors wrapper for async functions
+// 3. Return consistent response format: { success, result, message }
+// 4. Handle errors gracefully
+
+const create = async (req, res) => {
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      result: null,
+      message: error.details[0]?.message,
+    });
+  }
+  
+  // Business logic here
+  const result = await new Model(value).save();
+  
+  return res.status(200).json({
+    success: true,
+    result: result,
+    message: 'Created successfully',
+  });
+};
+```
+
+### Route Pattern
+```javascript
+// Use catchErrors wrapper for all route handlers
+router.route(`/entity/create`).post(catchErrors(controller.create));
+router.route(`/entity/read/:id`).get(catchErrors(controller.read));
+router.route(`/entity/update/:id`).patch(catchErrors(controller.update));
+router.route(`/entity/delete/:id`).delete(catchErrors(controller.delete));
+```
+
+### Error Handling
+- Always use `catchErrors` wrapper for async route handlers
+- Return consistent error response format
+- Use appropriate HTTP status codes (400 for validation, 500 for server errors)
+
+### Module Aliases
+- Use `@/` alias for `src/` directory (configured in jsconfig.json)
+- Example: `require('@/helpers')` instead of relative paths
+
+---
+
+## Frontend Patterns
+
+### Component Structure
+```jsx
+// Functional components with hooks
+import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import useLanguage from '@/locale/useLanguage';
+
+export default function ComponentName({ prop1, prop2 }) {
+  const translate = useLanguage();
+  const dispatch = useDispatch();
+  const { data } = useSelector(selectData);
+  
+  // Component logic
+  
+  return (
+    // JSX
+  );
+}
+```
+
+### Redux Pattern
+```javascript
+// actions.js - Action creators
+export const actionName = (payload) => async (dispatch) => {
+  dispatch({ type: actionTypes.REQUEST_LOADING });
+  try {
+    const data = await service.call();
+    dispatch({ type: actionTypes.REQUEST_SUCCESS, payload: data.result });
+  } catch (error) {
+    dispatch({ type: actionTypes.REQUEST_FAILED });
+  }
+};
+
+// reducer.js - Reducers
+const reducer = (state = INITIAL_STATE, action) => {
+  switch (action.type) {
+    case actionTypes.REQUEST_LOADING:
+      return { ...state, isLoading: true };
+    case actionTypes.REQUEST_SUCCESS:
+      return { ...state, data: action.payload, isLoading: false };
+    default:
+      return state;
+  }
+};
+
+// selectors.js - Selectors
+export const selectData = (state) => state.feature.data;
+```
+
+### Context Pattern
+```jsx
+// Context provider with reducer pattern
+import { useReducer, createContext, useContext } from 'react';
+
+const Context = createContext();
+
+function ContextProvider({ children }) {
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const actions = createActions(dispatch);
+  const selectors = createSelectors(state);
+  
+  return (
+    <Context.Provider value={{ state, actions, selectors }}>
+      {children}
+    </Context.Provider>
+  );
+}
+
+function useContext() {
+  const context = useContext(Context);
+  if (!context) {
+    throw new Error('useContext must be used within ContextProvider');
+  }
+  return context;
+}
+```
+
+### Form Pattern (Ant Design)
+```jsx
+import { Form, Input } from 'antd';
+import useLanguage from '@/locale/useLanguage';
+
+export default function FormComponent({ isUpdateForm = false }) {
+  const translate = useLanguage();
+  
+  return (
+    <Form.Item
+      label={translate('Field Label')}
+      name="fieldName"
+      rules={[
+        { required: true },
+        { validator: validateFunction },
+      ]}
+    >
+      <Input />
+    </Form.Item>
+  );
+}
+```
+
+### API Request Pattern
+```javascript
+// Use the centralized request utility
+import { request } from '@/request';
+
+// In components/actions
+const data = await request.create({ entity: 'invoice', jsonData: formData });
+const data = await request.list({ entity: 'invoice', options: { page: 1 } });
+```
+
+### Module Aliases
+- Use `@/` alias for `src/` directory (configured in jsconfig.json and vite.config.js)
+- Example: `import useLanguage from '@/locale/useLanguage'`
+
+---
+
+## TypeScript Migration Guidelines
+
+### Type Definitions
+
+#### Backend Types
+```typescript
+// Model Types
+interface IInvoice {
+  _id: string;
+  removed: boolean;
+  createdBy: string | IAdmin;
+  number: number;
+  year: number;
+  date: Date;
+  client: string | IClient;
+  items: IInvoiceItem[];
+  total: number;
+  currency: string;
+  status: 'draft' | 'pending' | 'sent' | 'refunded' | 'cancelled' | 'on hold';
+  created: Date;
+  updated: Date;
+}
+
+// Controller Response Type
+interface ApiResponse<T> {
+  success: boolean;
+  result: T | null;
+  message: string;
+  error?: any;
+}
+
+// Request Types
+interface CreateInvoiceRequest {
+  client: string;
+  date: Date;
+  items: IInvoiceItem[];
+  // ... other fields
+}
+```
+
+#### Frontend Types
+```typescript
+// Redux State Types
+interface AuthState {
+  current: IAdmin | null;
+  isLoggedIn: boolean;
+  isLoading: boolean;
+  isSuccess: boolean;
+}
+
+// Component Props Types
+interface DataTableProps {
+  config: DataTableConfig;
+  extra?: MenuItem[];
+}
+
+// API Response Types
+interface ApiResponse<T> {
+  success: boolean;
+  result: T | null;
+  message: string;
+}
+```
+
+### TypeScript Best Practices
+1. **Strict Mode**: Enable `strict: true` in tsconfig.json
+2. **No Any**: Avoid `any` type; use `unknown` if type is truly unknown
+3. **Interfaces vs Types**: Use interfaces for object shapes, types for unions/intersections
+4. **Generic Types**: Use generics for reusable components and functions
+5. **Type Guards**: Use type guards for runtime type checking
+6. **Enums**: Use enums for fixed sets of values (e.g., status, roles)
+
+### Migration Strategy
+1. Start with type definitions (`.d.ts` files)
+2. Migrate utilities and helpers first
+3. Migrate models and interfaces
+4. Migrate controllers and services
+5. Migrate components incrementally
+6. Enable strict TypeScript checks gradually
+
+---
+
+## File Organization Rules
+
+### Component Files
+- One component per file
+- Component name must match file name
+- Export default for main component
+- Co-locate related files (styles, tests) when appropriate
+
+### Folder Structure
+- Group related files together (components, forms, modules)
+- Use index files for clean imports
+- Keep folder depth reasonable (max 3-4 levels)
+
+### Import Order
+```javascript
+// 1. External dependencies
+import React from 'react';
+import { useDispatch } from 'react-redux';
+import { Form, Button } from 'antd';
+
+// 2. Internal absolute imports (@/)
+import useLanguage from '@/locale/useLanguage';
+import { request } from '@/request';
+
+// 3. Relative imports
+import Component from './Component';
+```
+
+---
+
+## Code Style Guidelines
+
+### JavaScript/TypeScript
+- Use 2 spaces for indentation
+- Use single quotes for strings (or double quotes consistently)
+- Use semicolons
+- Maximum line length: 100-120 characters
+- Use trailing commas in multi-line objects/arrays
+- Prefer const/let over var
+- Use arrow functions for callbacks
+- Use async/await over promises when possible
+
+### React/JSX
+- Use functional components with hooks
+- Extract complex logic into custom hooks
+- Use meaningful prop names
+- Destructure props at function signature
+- Use conditional rendering with ternary or && operators
+- Keep components small and focused (< 200 lines)
+
+### CSS/Styling
+- Use Ant Design components and styling system
+- Custom styles in separate CSS files in `style/` directory
+- Use CSS modules or styled-components for component-specific styles
+- Follow BEM naming convention if writing custom CSS
+
+---
+
+## Testing Guidelines (Future)
+- Write unit tests for utilities and helpers
+- Write integration tests for API endpoints
+- Write component tests for critical UI components
+- Aim for >70% code coverage
+- Use Jest for testing framework
+
+---
+
+## Git & Commit Guidelines
+
+### Branch Naming
+- Features: `features/feature-name`
+- Fixes: `issues/fix-description`
+- Base branch: `dev` (not `master`)
+
+### Commit Messages
+- Format: `type: description`
+- Types: `feat`, `fix`, `refactor`, `docs`, `style`, `test`, `chore`
+- Examples:
+  - `feat: add new invoice creation form`
+  - `fix: resolve authentication token expiration issue`
+  - `refactor: improve error handling in payment controller`
+
+---
+
+## Performance Guidelines
+
+### Backend
+- Use database indexes for frequently queried fields
+- Implement pagination for list endpoints
+- Use lean queries when full Mongoose documents aren't needed
+- Cache frequently accessed data when appropriate
+- Use compression middleware
+
+### Frontend
+- Use React.lazy() for code splitting (already implemented)
+- Memoize expensive computations with useMemo
+- Use useCallback for event handlers passed to child components
+- Optimize re-renders with React.memo when appropriate
+- Lazy load routes and heavy components
+
+---
+
+## Security Guidelines
+
+### Backend
+- Always validate and sanitize user input
+- Use JWT tokens for authentication
+- Implement rate limiting
+- Use HTTPS in production
+- Never expose sensitive data in error messages
+- Use environment variables for secrets
+
+### Frontend
+- Never store sensitive data in localStorage
+- Validate forms on both client and server
+- Sanitize user inputs before rendering
+- Use HTTPS for API calls
+- Implement proper CORS policies
+
+---
+
+## Documentation Standards
+
+### Code Comments
+- Write self-documenting code (prefer clear code over comments)
+- Add comments for complex business logic
+- Document function parameters and return values
+- Use JSDoc for TypeScript/JavaScript functions
+
+### README Updates
+- Keep README.md updated with setup instructions
+- Document new features and changes
+- Include examples for complex features
+
+---
+
+## Common Patterns to Follow
+
+### CRUD Operations
+- Use the `createCRUDController` factory for standard CRUD
+- Customize controllers only when business logic requires it
+- Follow RESTful conventions for routes
+
+### Data Fetching
+- Use Redux for global state management
+- Use Context API for component-level state
+- Use custom hooks for reusable data fetching logic
+
+### Error Handling
+- Always handle errors in try-catch blocks
+- Show user-friendly error messages
+- Log errors for debugging
+- Use consistent error response format
+
+### Form Handling
+- Use Ant Design Form components
+- Implement validation rules
+- Handle form submission with proper loading states
+- Reset forms after successful submission
+
+---
+
+## Anti-Patterns to Avoid
+
+1. ❌ Don't mutate state directly (use immutability)
+2. ❌ Don't use relative imports when `@/` alias is available
+3. ❌ Don't create components without proper error handling
+4. ❌ Don't skip input validation
+5. ❌ Don't use `any` type in TypeScript (use proper types)
+6. ❌ Don't commit console.log statements
+7. ❌ Don't hardcode values (use constants or config)
+8. ❌ Don't create deeply nested components (extract sub-components)
+9. ❌ Don't ignore TypeScript errors (fix or properly type)
+10. ❌ Don't mix business logic with UI components
+
+---
+
+## When Adding New Features
+
+1. **Backend**:
+   - Create model in `models/appModels/`
+   - Create controller in `controllers/appControllers/`
+   - Add routes in `routes/appRoutes/`
+   - Add validation schema
+   - Update model utils if needed
+
+2. **Frontend**:
+   - Create page component in `pages/`
+   - Create module in `modules/` if complex
+   - Create form component in `forms/`
+   - Add Redux actions/reducers/selectors if needed
+   - Add route in `router/routes.jsx`
+   - Add translations in `locale/translation/`
+
+3. **TypeScript Migration**:
+   - Add type definitions first
+   - Migrate model interfaces
+   - Migrate controller types
+   - Migrate component props and state
+   - Enable strict checking gradually
+
+---
+
+## Tools & Configuration
+
+### Required Tools
+- Node.js 20.9.0
+- npm 10.2.4
+- MongoDB
+- VS Code with recommended extensions
+
+### Recommended Extensions (VS Code)
+- ESLint
+- Prettier
+- TypeScript (for migration)
+- ESLint React Hooks
+- MongoDB for VS Code
+
+---
+
+## Questions or Issues?
+
+When in doubt:
+1. Check existing similar code patterns
+2. Review this document
+3. Follow the established conventions
+4. Ask for clarification if needed
+
+---
+
+**Last Updated**: Based on codebase analysis - Follow these rules to maintain consistency and code quality throughout the project.
+
+
