@@ -1,0 +1,233 @@
+import { useCallback, useEffect } from 'react';
+import {
+  EyeOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EllipsisOutlined,
+  RedoOutlined,
+  ArrowLeftOutlined,
+} from '@ant-design/icons';
+import { Dropdown, Table, Button, Input } from 'antd';
+import { PageHeader } from '@ant-design/pro-layout';
+import { useSelector } from 'react-redux';
+import { useAppDispatch } from '@/redux/hooks';
+import { crud } from '@/redux/crud/actions';
+import { selectListItems } from '@/redux/crud/selectors';
+import useLanguage from '@/locale/useLanguage';
+import { dataForTable } from '@/utils/dataStructure';
+import { useMoney, useDate } from '@/settings';
+import { generate as uniqueId } from 'shortid';
+import { useCrudContext } from '@/context/crud';
+import { TableColumn } from '@/types';
+import { MenuProps } from 'antd';
+
+interface AddNewItemProps {
+  config: {
+    ADD_NEW_ENTITY?: string;
+    [key: string]: any;
+  };
+}
+
+function AddNewItem({ config }: AddNewItemProps): JSX.Element {
+  const { crudContextAction } = useCrudContext();
+  const { collapsedBox, panel } = crudContextAction;
+  const { ADD_NEW_ENTITY } = config;
+
+  const handelClick = () => {
+    panel.open();
+    collapsedBox.close();
+  };
+
+  return (
+    <Button onClick={handelClick} type="primary">
+      {ADD_NEW_ENTITY}
+    </Button>
+  );
+}
+
+interface DataTableProps {
+  config: {
+    entity: string;
+    dataTableColumns?: TableColumn[];
+    DATATABLE_TITLE?: string;
+    fields?: any;
+    searchConfig?: {
+      searchFields?: string;
+      [key: string]: any;
+    };
+    [key: string]: any;
+  };
+  extra?: MenuProps['items'];
+}
+
+export default function DataTable({ config, extra = [] }: DataTableProps): JSX.Element {
+  let { entity, dataTableColumns: initialDataTableColumns, DATATABLE_TITLE, fields, searchConfig } = config;
+  const { crudContextAction } = useCrudContext();
+  const { panel, collapsedBox, modal, readBox, editBox, advancedBox } = crudContextAction;
+  const translate = useLanguage();
+  const { moneyFormatter } = useMoney();
+  const { dateFormat } = useDate();
+  const dispatch = useAppDispatch();
+
+  const items: MenuProps['items'] = [
+    {
+      label: translate('Show'),
+      key: 'read',
+      icon: <EyeOutlined />,
+    },
+    {
+      label: translate('Edit'),
+      key: 'edit',
+      icon: <EditOutlined />,
+    },
+    ...extra,
+    {
+      type: 'divider',
+    },
+    {
+      label: translate('Delete'),
+      key: 'delete',
+      icon: <DeleteOutlined />,
+    },
+  ];
+
+  const handleRead = (record: any) => {
+    dispatch(crud.currentItem({ data: record }));
+    panel.open();
+    collapsedBox.open();
+    readBox.open();
+  };
+  function handleEdit(record: any) {
+    dispatch(crud.currentItem({ data: record }));
+    dispatch(crud.currentAction({ actionType: 'update', data: record }));
+    editBox.open();
+    panel.open();
+    collapsedBox.open();
+  }
+  function handleDelete(record: any) {
+    dispatch(crud.currentAction({ actionType: 'delete', data: record }));
+    modal.open();
+  }
+
+  function handleUpdatePassword(record: any) {
+    dispatch(crud.currentItem({ data: record }));
+    dispatch(crud.currentAction({ actionType: 'update', data: record }));
+    advancedBox.open();
+    panel.open();
+    collapsedBox.open();
+  }
+
+  let dispatchColumns: TableColumn[] = [];
+  if (fields) {
+    dispatchColumns = [...dataForTable({ fields, translate, moneyFormatter, dateFormat })];
+  } else {
+    dispatchColumns = [...(initialDataTableColumns || [])];
+  }
+
+  const dataTableColumns: TableColumn[] = [
+    ...dispatchColumns,
+    {
+      title: '',
+      dataIndex: 'action',
+      key: 'action',
+      fixed: 'right' as const,
+      render: (_: any, record: any) => (
+        <Dropdown
+          menu={{
+            items,
+            onClick: ({ key }) => {
+              switch (key) {
+                case 'read':
+                  handleRead(record);
+                  break;
+                case 'edit':
+                  handleEdit(record);
+                  break;
+                case 'delete':
+                  handleDelete(record);
+                  break;
+                case 'updatePassword':
+                  handleUpdatePassword(record);
+                  break;
+                default:
+                  break;
+              }
+            },
+          }}
+          trigger={['click']}
+        >
+          <EllipsisOutlined
+            style={{ cursor: 'pointer', fontSize: '24px' }}
+            onClick={(e) => e.preventDefault()}
+          />
+        </Dropdown>
+      ),
+    },
+  ];
+
+  const { result: listResult, isLoading: listIsLoading } = useSelector(selectListItems);
+
+  const { pagination, items: dataSource } = listResult;
+
+  const handelDataTableLoad = useCallback(
+    (pagination: any) => {
+      const options = { page: pagination.current || 1, items: pagination.pageSize || 10 };
+      dispatch(crud.list({ entity, options }));
+    },
+    [dispatch, entity]
+  );
+
+  const filterTable = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const options = { q: value, fields: searchConfig?.searchFields || '' };
+    dispatch(crud.list({ entity, options }));
+  };
+
+  const dispatcher = () => {
+    dispatch(crud.list({ entity }));
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    dispatcher();
+    return () => {
+      controller.abort();
+    };
+  }, [dispatch, entity]);
+
+  return (
+    <>
+      <PageHeader
+        onBack={() => window.history.back()}
+        backIcon={<ArrowLeftOutlined />}
+        title={DATATABLE_TITLE}
+        ghost={false}
+        extra={[
+          <Input
+            key={`searchFilterDataTable}`}
+            onChange={filterTable}
+            placeholder={translate('search')}
+            allowClear
+          />,
+          <Button onClick={() => handelDataTableLoad(pagination)} key={`${uniqueId()}`} icon={<RedoOutlined />}>
+            {translate('Refresh')}
+          </Button>,
+          <AddNewItem key={`${uniqueId()}`} config={config} />,
+        ]}
+        style={{
+          padding: '20px 0px',
+        }}
+      ></PageHeader>
+
+      <Table
+        columns={dataTableColumns as Parameters<typeof Table>[0]['columns']}
+        rowKey={(item: Record<string, unknown>) => (item._id as string) || ''}
+        dataSource={dataSource as Record<string, unknown>[]}
+        pagination={pagination}
+        loading={listIsLoading}
+        onChange={handelDataTableLoad}
+        scroll={{ x: true }}
+      />
+    </>
+  );
+}
