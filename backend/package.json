@@ -6,12 +6,15 @@
     "node": "20.9.0"
   },
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js --ignore public/",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "dev:watch": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
     "production": "NODE_ENV=production",
-    "setup": "node src/setup/setup.js",
-    "upgrade": "node src/setup/upgrade.js",
-    "reset": "node src/setup/reset.js"
+    "setup": "ts-node src/setup/setup.ts",
+    "upgrade": "ts-node src/setup/upgrade.ts",
+    "reset": "ts-node src/setup/reset.ts",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.509.0",
@@ -43,7 +46,24 @@
     "transliteration": "^2.3.5"
   },
   "devDependencies": {
-    "nodemon": "3.0.1"
+    "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.8.1",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/express-fileupload": "^1.5.1",
+    "@types/html-pdf": "^3.0.3",
+    "@types/joi": "^17.2.2",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/lodash": "^4.17.21",
+    "@types/mongoose": "^5.11.96",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^25.0.3",
+    "@types/pug": "^2.0.10",
+    "@types/shortid": "^2.2.0",
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   },
   "_moduleAliases": {
     "@": "src"

@@ -1,0 +1,37 @@
+import { Response } from 'express';
+import { Model } from 'mongoose';
+import { AuthenticatedRequest } from '@/types';
+
+const filter = async (Model: Model<any>, req: AuthenticatedRequest, res: Response) => {
+  if (req.query.filter === undefined || req.query.equal === undefined) {
+    return res.status(403).json({
+      success: false,
+      result: null,
+      message: 'filter not provided correctly',
+    });
+  }
+  const result = await Model.find({
+    removed: false,
+  })
+    .where(req.query.filter as string)
+    .equals(req.query.equal)
+    .exec();
+  if (!result || result.length === 0) {
+    return res.status(404).json({
+      success: false,
+      result: null,
+      message: 'No document found ',
+    });
+  } else {
+    // Return success resposne
+    return res.status(200).json({
+      success: true,
+      result,
+      message: 'Successfully found all documents  ',
+    });
+  }
+};
+
+export default filter;
+
+
