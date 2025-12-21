@@ -1,5 +1,6 @@
 import createCRUDController from '@/controllers/middlewaresControllers/createCRUDController';
 import { routesList } from '@/models/utils';
+import { CRUDMethods } from '@/controllers/middlewaresControllers/createCRUDController';
 
 import { globSync } from 'glob';
 import * as path from 'path';
@@ -10,19 +11,25 @@ const controllerDirectories = globSync(pattern).map((filePath) => {
 });
 
 const appControllers = () => {
-  const controllers: any = {};
+  const controllers: Record<string, CRUDMethods> = {};
   const hasCustomControllers: string[] = [];
 
   controllerDirectories.forEach((controllerName) => {
     try {
-      const customController = require('@/controllers/appControllers/' + controllerName);
+      // Use require for dynamic loading - TypeScript can't statically analyze this
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const customController = require('@/controllers/appControllers/' + controllerName) as CRUDMethods | { default: CRUDMethods };
 
-      if (customController) {
+      if (customController && (customController.default || Object.keys(customController).length > 0)) {
         hasCustomControllers.push(controllerName);
-        controllers[controllerName] = customController;
+        controllers[controllerName] = (customController.default || customController) as CRUDMethods;
       }
-    } catch (err: any) {
-      throw new Error(err.message);
+    } catch (err: unknown) {
+      // Ignore errors for controllers that don't exist
+      // They will be created using the CRUD factory
+      if (err instanceof Error) {
+        // Silently ignore - controller will be created via CRUD factory
+      }
     }
   });
 

@@ -6,14 +6,86 @@ import errorHandler from './errorHandler';
 import successHandler from './successHandler';
 import storePersist from '@/redux/storePersist';
 
+// Cache to prevent excessive logging and re-configuration
+let lastToken: string | null = null;
+let isConfigured = false;
+
+/**
+ * Normalize URL to prevent double slashes and trailing slash issues
+ * @param url - URL to normalize
+ * @returns Normalized URL
+ */
+function normalizeUrl(url: string): string {
+  // Remove double slashes (except after protocol)
+  return url.replace(/([^:]\/)\/+/g, '$1');
+}
+
 function includeToken(): void {
-  axios.defaults.baseURL = API_BASE_URL;
+  // Only set defaults once
+  if (!isConfigured) {
+    axios.defaults.baseURL = API_BASE_URL;
+    axios.defaults.withCredentials = true;
+    // Configure redirect handling - allow redirects but log them
+    axios.defaults.maxRedirects = 5; // Allow redirects (default)
+    // Validate status - only 2xx are considered success (redirects 3xx will be errors)
+    axios.defaults.validateStatus = (status) => {
+      return status >= 200 && status < 300; // Only 2xx are success, 3xx will throw
+    };
+    
+    // Add request interceptor for debugging
+    if (typeof window !== 'undefined' && import.meta.env.DEV) {
+      axios.interceptors.request.use(
+        (config) => {
+          const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
+          console.log(`🔵 API Request: ${config.method?.toUpperCase()} ${fullUrl}`);
+          if (config.data && Object.keys(config.data).length > 0) {
+            console.log(`🔵 Request Data:`, config.data);
+          }
+          return config;
+        },
+        (error) => {
+          console.error('🔴 Request Interceptor Error:', error);
+          return Promise.reject(error);
+        }
+      );
+      
+      // Add response interceptor for debugging redirects
+      axios.interceptors.response.use(
+        (response) => {
+          // Log successful responses in dev mode
+          if (response.status >= 200 && response.status < 300) {
+            console.log(`✅ API Response: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
+          }
+          return response;
+        },
+        (error) => {
+          // Log error responses, especially redirects
+          if (error.response) {
+            const status = error.response.status;
+            if (status >= 300 && status < 400) {
+              console.error(`🟡 REDIRECT DETECTED: ${status} ${error.config.method?.toUpperCase()} ${error.config.url}`);
+              console.error(`🟡 Redirect Location: ${error.response.headers?.location || 'Not specified'}`);
+            }
+          }
+          return Promise.reject(error);
+        }
+      );
+    }
+    
+    isConfigured = true;
+  }
 
-  axios.defaults.withCredentials = true;
   const auth = storePersist.get('auth');
+  const token = auth ? (auth as any).current?.token : null;
 
-  if (auth) {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${(auth as any).current.token}`;
+  // Only update if token changed
+  if (token !== lastToken) {
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
+    }
+    lastToken = token;
   }
 }
 
@@ -96,7 +168,8 @@ const request: RequestInterface = {
   create: async ({ entity, jsonData }: { entity: string; jsonData: any }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.post(entity + '/create', jsonData);
+      const url = normalizeUrl(`${entity}/create`);
+      const response = await axios.post(url, jsonData);
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
@@ -115,7 +188,8 @@ const request: RequestInterface = {
   }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.post(entity + '/create', jsonData, {
+      const url = normalizeUrl(`${entity}/create`);
+      const response = await axios.post(url, jsonData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -132,7 +206,8 @@ const request: RequestInterface = {
   read: async ({ entity, id }: { entity: string; id: string }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.get(entity + '/read/' + id);
+      const url = normalizeUrl(`${entity}/read/${id}`);
+      const response = await axios.get(url);
       successHandler(response, {
         notifyOnSuccess: false,
         notifyOnFailed: true,
@@ -153,7 +228,8 @@ const request: RequestInterface = {
   }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.patch(entity + '/update/' + id, jsonData);
+      const url = normalizeUrl(`${entity}/update/${id}`);
+      const response = await axios.patch(url, jsonData);
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
@@ -174,7 +250,8 @@ const request: RequestInterface = {
   }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.patch(entity + '/update/' + id, jsonData, {
+      const url = normalizeUrl(`${entity}/update/${id}`);
+      const response = await axios.patch(url, jsonData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -192,7 +269,8 @@ const request: RequestInterface = {
   delete: async ({ entity, id }: { entity: string; id: string }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.delete(entity + '/delete/' + id);
+      const url = normalizeUrl(`${entity}/delete/${id}`);
+      const response = await axios.delete(url);
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
@@ -216,7 +294,8 @@ const request: RequestInterface = {
       let equal = options.equal ? '&equal=' + options.equal : '';
       let query = `?${filter}${equal}`;
 
-      const response = await axios.get(entity + '/filter' + query);
+      const url = normalizeUrl(`${entity}/filter${query}`);
+      const response = await axios.get(url);
       successHandler(response, {
         notifyOnSuccess: false,
         notifyOnFailed: false,
@@ -242,7 +321,8 @@ const request: RequestInterface = {
       }
       query = query.slice(0, -1);
       // headersInstance.cancelToken = source.token;
-      const response = await axios.get(entity + '/search' + query);
+      const url = normalizeUrl(`${entity}/search${query}`);
+      const response = await axios.get(url);
 
       successHandler(response, {
         notifyOnSuccess: false,
@@ -269,7 +349,8 @@ const request: RequestInterface = {
       }
       query = query.slice(0, -1);
 
-      const response = await axios.get(entity + '/list' + query);
+      const url = normalizeUrl(`${entity}/list${query}`);
+      const response = await axios.get(url);
 
       successHandler(response, {
         notifyOnSuccess: false,
@@ -295,7 +376,8 @@ const request: RequestInterface = {
       }
       query = query.slice(0, -1);
 
-      const response = await axios.get(entity + '/listAll' + query);
+      const url = normalizeUrl(`${entity}/listAll${query}`);
+      const response = await axios.get(url);
 
       successHandler(response, {
         notifyOnSuccess: false,
@@ -310,7 +392,8 @@ const request: RequestInterface = {
   post: async ({ entity, jsonData }: { entity: string; jsonData: any }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.post(entity, jsonData);
+      const url = normalizeUrl(entity);
+      const response = await axios.post(url, jsonData);
 
       return response.data;
     } catch (error) {
@@ -320,7 +403,8 @@ const request: RequestInterface = {
   get: async ({ entity }: { entity: string }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.get(entity);
+      const url = normalizeUrl(entity);
+      const response = await axios.get(url);
       return response.data;
     } catch (error) {
       return errorHandler(error as any);
@@ -329,7 +413,8 @@ const request: RequestInterface = {
   patch: async ({ entity, jsonData }: { entity: string; jsonData: any }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.patch(entity, jsonData);
+      const url = normalizeUrl(entity);
+      const response = await axios.patch(url, jsonData);
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
@@ -351,7 +436,8 @@ const request: RequestInterface = {
   }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.patch(entity + '/upload/' + id, jsonData, {
+      const url = normalizeUrl(`${entity}/upload/${id}`);
+      const response = await axios.patch(url, jsonData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -386,7 +472,8 @@ const request: RequestInterface = {
         query += key + '=' + options[key] + '&';
       }
       query = query.slice(0, -1);
-      const response = await axios.get(entity + '/summary' + query);
+      const url = normalizeUrl(`${entity}/summary${query}`);
+      const response = await axios.get(url);
 
       successHandler(response, {
         notifyOnSuccess: false,
@@ -402,7 +489,8 @@ const request: RequestInterface = {
   mail: async ({ entity, jsonData }: { entity: string; jsonData: any }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.post(entity + '/mail/', jsonData);
+      const url = normalizeUrl(`${entity}/mail`);
+      const response = await axios.post(url, jsonData);
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
@@ -416,7 +504,8 @@ const request: RequestInterface = {
   convert: async ({ entity, id }: { entity: string; id: string }): Promise<ApiResponse> => {
     try {
       includeToken();
-      const response = await axios.get(`${entity}/convert/${id}`);
+      const url = normalizeUrl(`${entity}/convert/${id}`);
+      const response = await axios.get(url);
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,

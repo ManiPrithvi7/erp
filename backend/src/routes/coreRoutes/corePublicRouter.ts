@@ -38,11 +38,12 @@ router.route('/:subPath/:directory/:file').get(function (req: Request, res: Resp
       }
     });
     return;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return res.status(503).json({
       success: false,
       result: null,
-      message: error.message,
+      message: errorMessage,
       error: error,
     });
   }

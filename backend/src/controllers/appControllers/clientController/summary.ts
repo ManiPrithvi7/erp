@@ -1,11 +1,11 @@
 import { Response } from 'express';
-import mongoose, { Model } from 'mongoose';
+import mongoose from 'mongoose';
 import moment from 'moment';
-import { AuthenticatedRequest } from '@/types';
+import { AuthenticatedRequest, ApiResponse } from '@/types';
 
 const InvoiceModel = mongoose.model('Invoice');
 
-const summary = async (Model: Model<any>, req: AuthenticatedRequest, res: Response) => {
+const summary = async (Model: mongoose.Model<unknown>, req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => {
   let defaultType = 'month';
   const { type } = req.query;
 
@@ -20,8 +20,8 @@ const summary = async (Model: Model<any>, req: AuthenticatedRequest, res: Respon
   }
 
   const currentDate = moment();
-  const startDate = currentDate.clone().startOf(defaultType as any);
-  const endDate = currentDate.clone().endOf(defaultType as any);
+  const startDate = currentDate.clone().startOf(defaultType as 'week' | 'month' | 'year');
+  const endDate = currentDate.clone().endOf(defaultType as 'week' | 'month' | 'year');
 
   const pipeline = [
     {

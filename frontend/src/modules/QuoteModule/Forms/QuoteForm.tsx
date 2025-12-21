@@ -1,18 +1,19 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import dayjs from 'dayjs';
-import { Form, Input, InputNumber, Button, Select, Divider, Row, Col } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Form, Input, InputNumber, Button, Select, Divider, Row, Col, Alert } from 'antd';
+import { PlusOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { DatePicker } from 'antd';
 import AutoCompleteAsync from '@/components/AutoCompleteAsync';
 import ItemRow from '@/modules/ErpPanelModule/ItemRow';
 import MoneyInputFormItem from '@/components/MoneyInputFormItem';
-import { selectFinanceSettings } from '@/redux/settings/selectors';
+import { selectFinanceSettings, selectSettings, selectMoneyFormat } from '@/redux/settings/selectors';
 import { useDate } from '@/settings';
 import useLanguage from '@/locale/useLanguage';
 import calculate from '@/utils/calculate';
 import { useSelector } from 'react-redux';
 import SelectAsync from '@/components/SelectAsync';
 import { ErpDocument } from '@/types';
+import { useNavigate } from 'react-router-dom';
 
 interface QuoteFormProps {
   subTotal?: number;
@@ -23,23 +24,140 @@ interface QuoteFormProps {
 interface LoadQuoteFormProps {
   subTotal?: number;
   current?: ErpDocument | Record<string, unknown> | null;
+  lastQuoteNumber?: number;
 }
 
-export default function QuoteForm({ subTotal = 0, current = null }: QuoteFormProps): JSX.Element {
-  const { last_quote_number } = useSelector(selectFinanceSettings);
+function QuoteForm({ subTotal = 0, current = null }: QuoteFormProps): JSX.Element {
+  const financeSettings = useSelector(selectFinanceSettings);
+  const moneyFormatSettings = useSelector(selectMoneyFormat);
+  const { isLoading: settingsLoading, isSuccess: settingsLoaded } = useSelector(selectSettings);
+  
+  // Memoize derived values to prevent unnecessary re-renders
+  const last_quote_number = useMemo(() => financeSettings?.last_quote_number ?? 0, [financeSettings?.last_quote_number]);
+  const hasSettings = useMemo(() => settingsLoaded && financeSettings && Object.keys(financeSettings).length > 0, [settingsLoaded, financeSettings]);
+  const hasCurrency = useMemo(() => moneyFormatSettings?.default_currency_code, [moneyFormatSettings?.default_currency_code]);
+  const settingsError = useMemo(() => !settingsLoading && !settingsLoaded && !hasSettings, [settingsLoading, settingsLoaded, hasSettings]);
+  
+  const navigate = useNavigate();
+  const translate = useLanguage();
 
-  if (last_quote_number === undefined) {
-    return <></>;
-  }
+  // Move debug logging to useEffect to prevent it from running on every render
+  useEffect(() => {
+    if (typeof window !== 'undefined' && import.meta.env.DEV) {
+      console.log('🔍 QuoteForm rendered:', {
+        financeSettings,
+        moneyFormatSettings,
+        last_quote_number,
+        default_currency_code: moneyFormatSettings?.default_currency_code,
+        subTotal,
+        current,
+        hasSettings,
+        hasCurrency,
+        settingsLoading,
+        settingsLoaded,
+        settingsError,
+      });
+    }
+  }, [financeSettings, moneyFormatSettings, last_quote_number, subTotal, current, hasSettings, hasCurrency, settingsLoading, settingsLoaded, settingsError]);
 
-  return <LoadQuoteForm subTotal={subTotal} current={current} />;
+  return (
+    <>
+      {settingsError && (
+        <Alert
+          message={translate('Settings Not Loaded')}
+          description={
+            <div>
+              <p style={{ marginBottom: '8px' }}>
+                {translate('Unable to load finance settings. This may affect quote creation. Please check your connection or configure settings manually.')}
+              </p>
+              <Button
+                type="primary"
+                icon={<InfoCircleOutlined />}
+                onClick={() => navigate('/settings')}
+                size="small"
+              >
+                {translate('Go to Settings')}
+              </Button>
+            </div>
+          }
+          type="warning"
+          icon={<InfoCircleOutlined />}
+          showIcon
+          style={{ marginBottom: '16px' }}
+          closable
+        />
+      )}
+      {!settingsLoading && !hasSettings && settingsLoaded && (
+        <Alert
+          message={translate('Finance Settings Not Configured')}
+          description={
+            <div>
+              <p style={{ marginBottom: '8px' }}>
+                {translate('Finance settings are not configured. Some features may not work correctly. Please configure your finance settings.')}
+              </p>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/settings')}
+                size="small"
+              >
+                {translate('Configure Settings')}
+              </Button>
+            </div>
+          }
+          type="info"
+          icon={<InfoCircleOutlined />}
+          showIcon
+          style={{ marginBottom: '16px' }}
+          closable
+        />
+      )}
+      {!settingsLoading && !hasCurrency && settingsLoaded && (
+        <Alert
+          message={translate('Currency Not Configured')}
+          description={
+            <div>
+              <p style={{ marginBottom: '8px' }}>
+                {translate('Default currency is not configured. Quotes require a currency. Please configure currency in Money Format Settings.')}
+              </p>
+              <Button
+                type="primary"
+                icon={<InfoCircleOutlined />}
+                onClick={() => navigate('/settings')}
+                size="small"
+              >
+                {translate('Configure Currency')}
+              </Button>
+            </div>
+          }
+          type="warning"
+          icon={<InfoCircleOutlined />}
+          showIcon
+          style={{ marginBottom: '16px' }}
+          closable
+        />
+      )}
+      <LoadQuoteForm subTotal={subTotal} current={current} lastQuoteNumber={last_quote_number} />
+    </>
+  );
 }
 
-function LoadQuoteForm({ subTotal = 0, current = null }: LoadQuoteFormProps): JSX.Element {
+function LoadQuoteForm({ subTotal = 0, current = null, lastQuoteNumber = 0 }: LoadQuoteFormProps): JSX.Element {
   const translate = useLanguage();
   const { dateFormat } = useDate();
-  const { last_quote_number } = useSelector(selectFinanceSettings);
-  const [lastNumber, setLastNumber] = useState(() => (last_quote_number || 0) + 1);
+  const [lastNumber, setLastNumber] = useState(() => (lastQuoteNumber || 0) + 1);
+
+  // Debug logging
+  useEffect(() => {
+    if (typeof window !== 'undefined' && import.meta.env.DEV) {
+      console.log('🔍 LoadQuoteForm rendered:', {
+        subTotal,
+        current,
+        lastQuoteNumber,
+        lastNumber,
+      });
+    }
+  }, [subTotal, current, lastQuoteNumber, lastNumber]);
 
   const [total, setTotal] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
@@ -77,6 +195,12 @@ function LoadQuoteForm({ subTotal = 0, current = null }: LoadQuoteFormProps): JS
 
   return (
     <>
+      {/* Debug indicator - remove in production */}
+      {import.meta.env.DEV && (
+        <div style={{ padding: '10px', background: '#f0f0f0', marginBottom: '10px', borderRadius: '4px' }}>
+          🔍 QuoteForm Loaded - lastQuoteNumber: {lastQuoteNumber}, subTotal: {subTotal}
+        </div>
+      )}
       <Row gutter={[12, 0]}>
         <Col className="gutter-row" span={8}>
           <Form.Item
@@ -267,7 +391,8 @@ function LoadQuoteForm({ subTotal = 0, current = null }: LoadQuoteFormProps): JS
               name="taxRate"
               rules={[
                 {
-                  required: true,
+                  required: false, // Make optional if no taxes available
+                  message: translate('Please select a tax rate or create one first'),
                 },
               ]}
             >
@@ -309,3 +434,6 @@ function LoadQuoteForm({ subTotal = 0, current = null }: LoadQuoteFormProps): JS
     </>
   );
 }
+
+// Memoize QuoteForm to prevent unnecessary re-renders when props haven't changed
+export default memo(QuoteForm);

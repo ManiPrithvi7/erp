@@ -14,10 +14,11 @@ if (!process.env.DATABASE) {
 
 mongoose.connect(process.env.DATABASE);
 
+import Admin from '../models/coreModels/Admin';
+import AdminPassword from '../models/coreModels/AdminPassword';
+
 async function setupApp() {
   try {
-    const Admin = require('../models/coreModels/Admin');
-    const AdminPassword = require('../models/coreModels/AdminPassword');
     const newAdminPassword = new AdminPassword();
 
     const salt = uniqueId();
@@ -43,14 +44,24 @@ async function setupApp() {
 
     console.log('👍 Admin created : Done!');
 
-    const Setting = require('../models/coreModels/Setting');
+    const Setting = (await import('../models/coreModels/Setting')).default;
 
-    const settingFiles: any[] = [];
+    interface SettingFile {
+      settingCategory: string;
+      settingKey: string;
+      settingValue?: string | number | boolean | object;
+      valueType: string;
+      isPrivate: boolean;
+      isCoreSetting: boolean;
+      enabled?: boolean;
+    }
+
+    const settingFiles: SettingFile[] = [];
 
     const settingsFiles = globSync('./src/setup/defaultSettings/**/*.json');
 
     for (const filePath of settingsFiles) {
-      const file = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      const file = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as SettingFile[];
       settingFiles.push(...file);
     }
 
@@ -58,8 +69,8 @@ async function setupApp() {
 
     console.log('👍 Settings created : Done!');
 
-    const PaymentMode = require('../models/appModels/PaymentMode');
-    const Taxes = require('../models/appModels/Taxes');
+    const PaymentMode = (await import('../models/appModels/PaymentMode')).default;
+    const Taxes = (await import('../models/appModels/Taxes')).default;
 
     await Taxes.insertMany([{ taxName: 'Tax 0%', taxValue: '0', isDefault: true }]);
     console.log('👍 Taxes created : Done!');
@@ -75,9 +86,14 @@ async function setupApp() {
 
     console.log('🥳 Setup completed :Success!');
     process.exit(0);
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.log('\n🚫 Error! The Error info is below');
-    console.log(e);
+    if (e instanceof Error) {
+      console.log(e.message);
+      console.log(e.stack);
+    } else {
+      console.log(e);
+    }
     process.exit(1);
   }
 }

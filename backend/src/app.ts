@@ -4,6 +4,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import fileUpload from 'express-fileupload';
 
+import requestLogger from './middlewares/requestLogger';
 import coreAuthRouter from './routes/coreRoutes/coreAuth';
 import coreApiRouter from './routes/coreRoutes/coreApi';
 import coreDownloadRouter from './routes/coreRoutes/coreDownloadRouter';
@@ -14,6 +15,9 @@ import erpApiRouter from './routes/appRoutes/appApi';
 
 // create our Express app
 const app: Application = express();
+
+// Request logging middleware (should be first to capture all requests)
+app.use(requestLogger);
 
 app.use(
   cors({

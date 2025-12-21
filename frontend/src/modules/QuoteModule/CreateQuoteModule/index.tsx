@@ -8,6 +8,11 @@ interface CreateQuoteModuleProps {
 }
 
 export default function CreateQuoteModule({ config }: CreateQuoteModuleProps): JSX.Element {
+  // Debug logging
+  if (typeof window !== 'undefined' && import.meta.env.DEV) {
+    console.log('🔍 CreateQuoteModule rendered:', { config });
+  }
+
   return (
     <ErpLayout>
       <CreateItem config={config} CreateForm={QuoteForm} />

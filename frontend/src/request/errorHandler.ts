@@ -4,7 +4,14 @@ import codeMessage from './codeMessage';
 import { ApiResponse } from '@/types';
 
 const errorHandler = (error: AxiosError | Error): ApiResponse => {
+  // Log error details for debugging
+  console.error('\n❌ ===== FRONTEND API ERROR =====');
+  console.error(`⏰ Time: ${new Date().toISOString()}`);
+  console.error(`🔹 Error Type: ${error.constructor.name}`);
+  console.error(`🔹 Error Message: ${error.message}`);
+
   if (!navigator.onLine) {
+    console.error('🔴 No internet connection detected');
     notification.config({
       duration: 15,
       maxCount: 1,
@@ -14,6 +21,7 @@ const errorHandler = (error: AxiosError | Error): ApiResponse => {
       message: 'No internet connection',
       description: 'Cannot connect to the Internet, Check your internet network',
     });
+    console.error('================================\n');
     return {
       success: false,
       result: null,
@@ -22,9 +30,25 @@ const errorHandler = (error: AxiosError | Error): ApiResponse => {
   }
 
   const axiosError = error as AxiosError;
-  const { response } = axiosError;
+  const { response, request, config } = axiosError;
+
+  // Log request details
+  if (config) {
+    console.error(`🔹 Request URL: ${config.baseURL || ''}${config.url || ''}`);
+    console.error(`🔹 Request Method: ${config.method?.toUpperCase() || 'UNKNOWN'}`);
+  }
 
   if (!response) {
+    console.error('🔴 No response received from server');
+    if (request) {
+      console.error(`🔹 Request Status: ${request.status || 'UNKNOWN'}`);
+      console.error(`🔹 Request Ready State: ${request.readyState || 'UNKNOWN'}`);
+    }
+    console.error('💡 Possible causes:');
+    console.error('   - Backend server is not running');
+    console.error('   - CORS configuration issue');
+    console.error('   - Network connectivity problem');
+    console.error('   - Wrong API base URL configured');
     notification.config({
       duration: 20,
       maxCount: 1,
@@ -34,11 +58,30 @@ const errorHandler = (error: AxiosError | Error): ApiResponse => {
     //   message: 'Problem connecting to server',
     //   description: 'Cannot connect to the server, Try again later',
     // });
+    console.error('================================\n');
     return {
       success: false,
       result: null,
       message: 'Cannot connect to the server, Contact your Account administrator',
     };
+  }
+
+  // Log response details
+  console.error(`🔹 Response Status: ${response.status}`);
+  console.error(`🔹 Response Status Text: ${response.statusText}`);
+  
+  // Special handling for redirect status codes (3xx)
+  if (response.status >= 300 && response.status < 400) {
+    console.error('🔴 REDIRECT DETECTED - This should not happen for API calls');
+    console.error(`🔹 Redirect Location: ${response.headers?.location || 'Not specified'}`);
+    console.error('💡 Possible causes:');
+    console.error('   - URL has trailing slash issue');
+    console.error('   - Backend is redirecting incorrectly');
+    console.error('   - API base URL configuration issue');
+  }
+  
+  if (response.data) {
+    console.error(`🔹 Response Data:`, response.data);
   }
 
   if (
@@ -66,8 +109,20 @@ const errorHandler = (error: AxiosError | Error): ApiResponse => {
         ? (responseDataObj.message as string)
         : undefined;
 
-    const errorText = message || codeMessage[response.status];
     const { status } = response;
+    
+    // Special handling for 300 status code (Multiple Choices - redirect)
+    if (status === 300) {
+      const location = response.headers?.location || 'Not specified';
+      console.error('🔴 HTTP 300 Multiple Choices - Redirect detected');
+      console.error(`🔹 Redirect Location: ${location}`);
+      console.error('💡 This usually indicates:');
+      console.error('   - URL has trailing slash mismatch');
+      console.error('   - Backend is redirecting incorrectly');
+      console.error('   - API endpoint path is incorrect');
+    }
+    
+    const errorText = message || codeMessage[status] || `HTTP ${status} error`;
     notification.config({
       duration: 20,
       maxCount: 2,

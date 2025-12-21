@@ -1,5 +1,10 @@
 import * as dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import Admin from '../models/coreModels/Admin';
+import AdminPassword from '../models/coreModels/AdminPassword';
+import Setting from '../models/coreModels/Setting';
+import PaymentMode from '../models/appModels/PaymentMode';
+import Taxes from '../models/appModels/Taxes';
 
 dotenv.config({ path: '.env' });
 dotenv.config({ path: '.env.local' });
@@ -12,11 +17,6 @@ if (!process.env.DATABASE) {
 mongoose.connect(process.env.DATABASE);
 
 async function deleteData() {
-  const Admin = require('../models/coreModels/Admin');
-  const AdminPassword = require('../models/coreModels/AdminPassword');
-  const Setting = require('../models/coreModels/Setting');
-  const PaymentMode = require('../models/appModels/PaymentMode');
-  const Taxes = require('../models/appModels/Taxes');
 
   await Admin.deleteMany();
   await AdminPassword.deleteMany();

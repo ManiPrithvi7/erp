@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { Layout } from 'antd';
 import { useSelector } from 'react-redux';
 import { useAppDispatch } from '@/redux/hooks';
@@ -21,9 +21,18 @@ export default function ErpCrmApp(): JSX.Element {
   const { isMobile } = useResponsive();
 
   const dispatch = useAppDispatch();
+  const settingsLoadAttemptedRef = useRef(false);
 
   useLayoutEffect(() => {
-    dispatch(settingsAction.list({ entity: 'setting' }));
+    // Only load settings once - prevent infinite loops
+    // Use ref instead of state to avoid dependency issues
+    if (!settingsLoadAttemptedRef.current) {
+      settingsLoadAttemptedRef.current = true;
+      dispatch(settingsAction.list({ entity: 'setting' })).catch((error) => {
+        console.error('Failed to load settings:', error);
+        // Don't retry - use cached settings if available
+      });
+    }
   }, [dispatch]);
 
   // const appSettings = useSelector(selectAppSettings);

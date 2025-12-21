@@ -17,6 +17,12 @@ export default function QuoteCreate(): JSX.Element {
     entity,
     ...Labels,
   };
+
+  // Debug logging
+  if (typeof window !== 'undefined' && import.meta.env.DEV) {
+    console.log('🔍 QuoteCreate page rendered:', { entity, configPage });
+  }
+
   return <CreateQuoteModule config={configPage} />;
 }
 

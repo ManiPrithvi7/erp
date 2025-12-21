@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import {
   EyeOutlined,
   EditOutlined,
@@ -17,7 +17,6 @@ import useLanguage from '@/locale/useLanguage';
 import { erp } from '@/redux/erp/actions';
 import { selectListItems } from '@/redux/erp/selectors';
 import { useErpContext } from '@/context/erp';
-import { generate as uniqueId } from 'shortid';
 import { useNavigate } from 'react-router-dom';
 import { DOWNLOAD_BASE_URL } from '@/config/serverApiConfig';
 import { useAppDispatch } from '@/redux/hooks';
@@ -32,7 +31,9 @@ function AddNewItem({ config }: AddNewItemProps): JSX.Element {
   const { ADD_NEW_ENTITY, entity } = config;
 
   const handleClick = () => {
-    navigate(`/${entity.toLowerCase()}/create`);
+    const targetPath = `/${entity.toLowerCase()}/create`;
+    console.log('🔍 AddNewItem clicked:', { entity, targetPath, ADD_NEW_ENTITY });
+    navigate(targetPath);
   };
 
   return (
@@ -170,10 +171,14 @@ export default function DataTable({ config, extra = [] }: DataTableProps): JSX.E
     };
   }, [dispatch, entity]);
 
-  const filterTable = (value: string): void => {
+  // Memoize filterTable to prevent recreation on every render
+  const filterTable = useCallback((value: string): void => {
     const options = { equal: value, filter: searchConfig?.entity || '' };
     dispatch(erp.list({ entity, options }));
-  };
+  }, [dispatch, entity, searchConfig?.entity]);
+  
+  // Memoize displayLabels array to prevent recreation
+  const displayLabels = useMemo(() => ['name'], []);
 
   return (
     <>
@@ -185,17 +190,17 @@ export default function DataTable({ config, extra = [] }: DataTableProps): JSX.E
         extra={[
           searchConfig?.entity && (
             <AutoCompleteAsync
-              key={`${uniqueId()}`}
+              key="search-autocomplete"
               entity={searchConfig.entity}
-              displayLabels={['name']}
+              displayLabels={displayLabels}
               searchFields={'name'}
               onChange={filterTable}
             />
           ),
-          <Button onClick={() => handelDataTableLoad(pagination)} key={`${uniqueId()}`} icon={<RedoOutlined />}>
+          <Button onClick={() => handelDataTableLoad(pagination)} key="refresh-button" icon={<RedoOutlined />}>
             {translate('Refresh')}
           </Button>,
-          !disableAdd && <AddNewItem key={`${uniqueId()}`} config={config} />,
+          !disableAdd && <AddNewItem key="add-new-item" config={config} />,
         ]}
         style={{
           padding: '20px 0px',

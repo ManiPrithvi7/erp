@@ -11,17 +11,20 @@ import summary from './summary';
 import listAll from './listAll';
 import paginatedList from './paginatedList';
 
+import { Response } from 'express';
+import { AuthenticatedRequest, ApiResponse } from '@/types';
+
 export interface CRUDMethods {
-  create: (req: any, res: any) => Promise<any>;
-  read: (req: any, res: any) => Promise<any>;
-  update: (req: any, res: any) => Promise<any>;
-  delete: (req: any, res: any) => Promise<any>;
-  list: (req: any, res: any) => Promise<any>;
-  listAll: (req: any, res: any) => Promise<any>;
-  search: (req: any, res: any) => Promise<any>;
-  filter: (req: any, res: any) => Promise<any>;
-  summary: (req: any, res: any) => Promise<any>;
-  [key: string]: any; // Allow additional methods like mail, convert
+  create: (req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => Promise<Response<ApiResponse<unknown>>> | Promise<void>;
+  read: (req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => Promise<Response<ApiResponse<unknown>>> | Promise<void>;
+  update: (req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => Promise<Response<ApiResponse<unknown>>> | Promise<void>;
+  delete: (req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => Promise<Response<ApiResponse<unknown>>> | Promise<void>;
+  list: (req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => Promise<Response<ApiResponse<unknown>>> | Promise<void>;
+  listAll: (req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => Promise<Response<ApiResponse<unknown>>> | Promise<void>;
+  search: (req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => Promise<Response<ApiResponse<unknown>>> | Promise<void>;
+  filter: (req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => Promise<Response<ApiResponse<unknown>>> | Promise<void>;
+  summary: (req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => Promise<Response<ApiResponse<unknown>>> | Promise<void>;
+  [key: string]: (req: AuthenticatedRequest, res: Response<ApiResponse<unknown>>) => Promise<Response<ApiResponse<unknown>>> | Promise<void>; // Allow additional methods like mail, convert
 }
 
 const createCRUDController = (modelName: string): CRUDMethods => {

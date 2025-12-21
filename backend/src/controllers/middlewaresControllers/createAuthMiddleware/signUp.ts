@@ -1,15 +1,15 @@
 import Joi from 'joi';
 import mongoose, { Model } from 'mongoose';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { generate as uniqueId } from 'shortid';
-import { AuthenticatedRequest } from '@/types';
+import { ApiResponse } from '@/types';
 import authUser from './authUser';
 
 interface SignUpParams {
   userModel: string;
 }
 
-const signUp = async (req: AuthenticatedRequest, res: Response, { userModel }: SignUpParams) => {
+const signUp = async (req: Request, res: Response<ApiResponse<unknown>>, { userModel }: SignUpParams) => {
   const UserPasswordModel = mongoose.model(userModel + 'Password');
   const UserModel = mongoose.model(userModel);
   let { email, password, name, surname } = req.body;

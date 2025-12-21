@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { request } from '@/request';
-import useOnFetch from '@/hooks/useOnFetch';
 import useDebounce from '@/hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
 import { Select, Empty } from 'antd';
 import useLanguage from '@/locale/useLanguage';
 
-interface AutoCompleteAsyncProps {
+export interface AutoCompleteAsyncProps {
   entity: string;
   displayLabels: string[];
   searchFields: string;
@@ -30,34 +29,42 @@ export default function AutoCompleteAsync({
   onChange,
 }: AutoCompleteAsyncProps): JSX.Element {
   const translate = useLanguage();
-
-  const addNewValue = { value: 'redirectURL', label: `+ ${translate(redirectLabel)}` };
-
-  const [selectOptions, setOptions] = useState<any[]>([]);
-  const [currentValue, setCurrentValue] = useState<string | undefined>(undefined);
-
-  const isUpdating = useRef(true);
-  const isSearching = useRef(false);
-
-  const [searching, setSearching] = useState(false);
-
-  const [valToSearch, setValToSearch] = useState('');
-  const [debouncedValue, setDebouncedValue] = useState('');
-
   const navigate = useNavigate();
 
-  const handleSelectChange = (newValue: any) => {
-    isUpdating.current = false;
-    if (onChange) {
-      if (newValue) onChange(newValue[outputValue] || newValue);
-    }
-    if (newValue === 'redirectURL' && withRedirect) {
-      navigate(urlToRedirect);
-    }
-  };
+  // Stable memoized values
+  const placeholderText = useMemo(() => translate('Search'), []);
+  const selectId = useMemo(() => `autocomplete-${entity}`, [entity]);
+  const selectStyle = useMemo(() => ({ minWidth: '220px' }), []);
+  const emptyComponent = useMemo(() => <Empty />, []);
 
+  // State
+  const [selectOptions, setOptions] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [valToSearch, setValToSearch] = useState('');
+  const [debouncedValue, setDebouncedValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [, cancel] = useDebounce(
+  // Refs to avoid dependency issues
+  const onChangeRef = useRef(onChange);
+  const selectOptionsRef = useRef<any[]>([]);
+  const outputValueRef = useRef(outputValue);
+  const previousDisplayValueRef = useRef<any>(undefined);
+
+  // Update refs
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    selectOptionsRef.current = selectOptions;
+  }, [selectOptions]);
+
+  useEffect(() => {
+    outputValueRef.current = outputValue;
+  }, [outputValue]);
+
+  // Debounce search
+  useDebounce(
     () => {
       setDebouncedValue(valToSearch);
     },
@@ -65,78 +72,181 @@ export default function AutoCompleteAsync({
     [valToSearch]
   );
 
-  const asyncSearch = async (options: any) => {
-    return await request.search({ entity, options });
-  };
-
-  let { onFetch, result, isSuccess, isLoading } = useOnFetch();
-
-  const labels = (optionField: any): string => {
-    return displayLabels.map((x) => optionField[x]).join(' ');
-  };
-
+  // Stabilize displayLabels array to prevent unnecessary re-renders
+  // Use JSON.stringify for deep comparison since arrays are compared by reference
+  const displayLabelsRef = useRef<string[]>(displayLabels);
+  const displayLabelsString = JSON.stringify(displayLabels);
+  const previousDisplayLabelsString = useRef<string>('');
+  
   useEffect(() => {
-    const options = {
-      q: debouncedValue,
-      fields: searchFields,
+    if (displayLabelsString !== previousDisplayLabelsString.current) {
+      displayLabelsRef.current = displayLabels;
+      previousDisplayLabelsString.current = displayLabelsString;
+    }
+  }, [displayLabelsString]);
+
+  // Memoize labels function - use ref to avoid dependency on changing array reference
+  const labels = useCallback(
+    (optionField: any): string => {
+      return displayLabelsRef.current.map((x) => optionField[x]).join(' ');
+    },
+    [] // Empty deps - we use ref instead
+  );
+
+  // Search effect
+  useEffect(() => {
+    if (!debouncedValue || !debouncedValue.trim()) {
+      setOptions([]);
+      setSearching(false);
+      setIsLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const performSearch = async () => {
+      try {
+        setIsLoading(true);
+        setSearching(true);
+        const options = {
+          q: debouncedValue,
+          fields: searchFields,
+        };
+        const response = await request.search({ entity, options });
+        
+        if (!isCancelled && response?.result) {
+          setOptions(Array.isArray(response.result) ? response.result : []);
+          setSearching(false);
+          setIsLoading(false);
+        } else if (!isCancelled) {
+          setOptions([]);
+          setSearching(false);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error('Search error:', error);
+          setOptions([]);
+          setSearching(false);
+          setIsLoading(false);
+        }
+      }
     };
-    const callback = asyncSearch(options);
-    onFetch(callback);
+
+    performSearch();
 
     return () => {
-      cancel();
+      isCancelled = true;
     };
-  }, [debouncedValue, entity, searchFields, onFetch, cancel]);
+  }, [debouncedValue, entity, searchFields]);
 
-  const onSearch = (searchText: string) => {
-    isSearching.current = true;
+  // Calculate display value - only update when it actually changes
+  // Use outputValueRef to avoid dependency issues
+  const displayValue = useMemo(() => {
+    let newDisplayValue: any;
+    const currentOutputValue = outputValueRef.current;
+    
+    if (value === undefined || value === null) {
+      newDisplayValue = undefined;
+    } else if (typeof value === 'object' && value !== null) {
+      newDisplayValue = value[currentOutputValue] || value;
+    } else {
+      newDisplayValue = value;
+    }
+    
+    // Return previous value if unchanged to maintain reference stability
+    if (previousDisplayValueRef.current === newDisplayValue) {
+      return previousDisplayValueRef.current;
+    }
+    
+    previousDisplayValueRef.current = newDisplayValue;
+    return newDisplayValue;
+  }, [value]); // Removed outputValue - using ref instead
+
+  // Memoize notFoundContent
+  const notFoundContent = useMemo(() => {
+    return searching ? '... Searching' : emptyComponent;
+  }, [searching, emptyComponent]);
+
+  // Memoize addNewValue
+  const addNewValue = useMemo(
+    () => {
+      const label = translate(redirectLabel);
+      return { value: 'redirectURL', label: `+ ${label}` };
+    },
+    [redirectLabel]
+  );
+
+  // Memoize options list to prevent recreation
+  // Use outputValueRef to avoid dependency issues
+  const optionsList = useMemo(() => {
+    const currentOutputValue = outputValueRef.current;
+    return selectOptions.map((optionField) => {
+      const optionValue = optionField[currentOutputValue] || optionField;
+      return (
+        <Select.Option key={String(optionValue)} value={optionValue}>
+          {labels(optionField)}
+        </Select.Option>
+      );
+    });
+  }, [selectOptions, labels]); // Removed outputValue - using ref instead
+
+  // Handlers - all memoized
+  const onSearch = useCallback((searchText: string) => {
     setSearching(true);
     setValToSearch(searchText);
-  };
+  }, []);
 
-  useEffect(() => {
-    if (isSuccess) {
-      setOptions(result || []);
-    } else {
-      setSearching(false);
+  const onClear = useCallback(() => {
+    setSearching(false);
+    if (onChangeRef.current) {
+      onChangeRef.current(undefined);
     }
-  }, [isSuccess, result]);
+  }, []);
 
-  useEffect(() => {
-    if (value && isUpdating.current) {
-      setOptions([value]);
-      setCurrentValue(value[outputValue] || value);
-      if (onChange) {
-        onChange(value[outputValue] || value);
+  const handleSelectChange = useCallback(
+    (newValue: any) => {
+      if (newValue === 'redirectURL' && withRedirect) {
+        navigate(urlToRedirect);
+        return;
       }
-      isUpdating.current = false;
-    }
-  }, [value, outputValue, onChange]);
+      
+      if (onChangeRef.current) {
+        const currentOutputValue = outputValueRef.current;
+        const selectedOption = selectOptionsRef.current.find(
+          (opt) => (opt[currentOutputValue] || opt) === newValue
+        );
+        
+        if (selectedOption) {
+          onChangeRef.current(selectedOption[currentOutputValue] || selectedOption);
+        } else if (newValue) {
+          onChangeRef.current(newValue);
+        } else {
+          onChangeRef.current(undefined);
+        }
+      }
+    },
+    [withRedirect, navigate, urlToRedirect]
+  );
 
   return (
     <Select
+      id={selectId}
       loading={isLoading}
       showSearch
       allowClear
-      placeholder={translate('Search')}
+      placeholder={placeholderText}
       defaultActiveFirstOption={false}
       filterOption={false}
-      notFoundContent={searching ? '... Searching' : <Empty />}
-      value={currentValue}
+      notFoundContent={notFoundContent}
+      value={displayValue}
       onSearch={onSearch}
-      onClear={() => {
-        setSearching(false);
-      }}
+      onClear={onClear}
       onChange={handleSelectChange}
-      style={{ minWidth: '220px' }}
+      style={selectStyle}
     >
-      {selectOptions.map((optionField) => (
-        <Select.Option key={optionField[outputValue] || optionField} value={optionField[outputValue] || optionField}>
-          {labels(optionField)}
-        </Select.Option>
-      ))}
+      {optionsList}
       {withRedirect && <Select.Option value={addNewValue.value}>{addNewValue.label}</Select.Option>}
     </Select>
   );
 }
-

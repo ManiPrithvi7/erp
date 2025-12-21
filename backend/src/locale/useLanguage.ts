@@ -24,11 +24,10 @@ const getLabel = (lang: Record<string, string>, key: string): string => {
   }
 };
 
-const useSelector = (): Record<string, string> => {
-  const defaultfilePath = `./translation/en_us`;
+import en_us from './translation/en_us';
 
-  const langFile = require(defaultfilePath);
-  return langFile;
+const useSelector = (): Record<string, string> => {
+  return en_us;
 };
 
 interface UseLanguageParams {

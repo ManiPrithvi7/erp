@@ -54,16 +54,16 @@ export const timeRange = (
 
 export const calculate = {
   add: (firstValue: number | string, secondValue: number | string): number => {
-    return currency(firstValue as any).add(secondValue).value;
+    return currency(firstValue).add(secondValue).value;
   },
   sub: (firstValue: number | string, secondValue: number | string): number => {
-    return currency(firstValue as any).subtract(secondValue).value;
+    return currency(firstValue).subtract(secondValue).value;
   },
   multiply: (firstValue: number | string, secondValue: number | string): number => {
-    return currency(firstValue as any).multiply(secondValue).value;
+    return currency(firstValue).multiply(secondValue).value;
   },
   divide: (firstValue: number | string, secondValue: number | string): number => {
-    return currency(firstValue as any).divide(secondValue).value;
+    return currency(firstValue).divide(secondValue).value;
   },
 };
 

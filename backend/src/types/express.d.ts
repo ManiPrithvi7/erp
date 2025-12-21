@@ -14,11 +14,11 @@ export interface AuthenticatedRequest extends Request {
 }
 
 // API Response type
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   result?: T | null;
   message: string;
-  error?: any;
+  error?: unknown;
   errorMessage?: string;
   controller?: string;
 }

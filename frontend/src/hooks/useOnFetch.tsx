@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { ApiResponse } from '@/types';
 
 export default function useOnFetch<T = any>() {
@@ -6,7 +6,7 @@ export default function useOnFetch<T = any>() {
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  let onFetch = async (callback: Promise<ApiResponse<T>>): Promise<void> => {
+  const onFetch = useCallback(async (callback: Promise<ApiResponse<T>>): Promise<void> => {
     setIsLoading(true);
 
     const data = await callback;
@@ -17,7 +17,7 @@ export default function useOnFetch<T = any>() {
       setIsSuccess(false);
     }
     setIsLoading(false);
-  };
+  }, []); // Empty deps - function doesn't depend on any props/state
 
   return { onFetch, result, isSuccess, isLoading };
 }

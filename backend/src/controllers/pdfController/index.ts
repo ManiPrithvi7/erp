@@ -22,7 +22,7 @@ interface PdfInfo {
 export const generatePdf = async (
   modelName: string,
   info: PdfInfo = { filename: 'pdf_file', format: 'A5', targetLocation: '' },
-  result: any,
+  result: Record<string, unknown>,
   callback?: () => void
 ) => {
   try {
@@ -39,17 +39,15 @@ export const generatePdf = async (
       // Compile Pug template
 
       const settings = await loadSettings();
-      const selectedLang = settings['idurar_app_language'];
+      const selectedLang = settings['idurar_app_language'] as string | undefined;
       const translate = useLanguage({ selectedLang });
 
-      const {
-        currency_symbol,
-        currency_position,
-        decimal_sep,
-        thousand_sep,
-        cent_precision,
-        zero_format,
-      } = settings;
+      const currency_symbol = settings['currency_symbol'] as string | undefined;
+      const currency_position = settings['currency_position'] as 'before' | 'after' | undefined;
+      const decimal_sep = settings['decimal_sep'] as string | undefined;
+      const thousand_sep = settings['thousand_sep'] as string | undefined;
+      const cent_precision = settings['cent_precision'] as number | undefined;
+      const zero_format = settings['zero_format'] as boolean | undefined;
 
       const { moneyFormatter } = useMoney({
         settings: {
