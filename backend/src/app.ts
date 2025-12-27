@@ -36,8 +36,12 @@ app.use(compression());
 // app.use(fileUpload());
 
 // Here our API Routes
+// IMPORTANT: Auth routes (login, signup, etc.) must be registered BEFORE auth middleware
+// These routes do NOT require authentication tokens
 
 app.use('/api', coreAuthRouter);
+
+// All routes below require authentication token
 app.use('/api', adminAuth.isValidAuthToken, coreApiRouter);
 app.use('/api', adminAuth.isValidAuthToken, erpApiRouter);
 app.use('/download', coreDownloadRouter);

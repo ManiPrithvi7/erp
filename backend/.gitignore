@@ -6,3 +6,8 @@ notes.md
 .env.local
 
 *.pdf
+
+# Test coverage
+coverage/
+.nyc_output/coverage/
+.nyc_output/

@@ -1,14 +1,23 @@
 import Joi from 'joi';
 import mongoose, { Model } from 'mongoose';
-import { Response } from 'express';
-import { AuthenticatedRequest } from '@/types';
+import { Request, Response } from 'express';
 import authUser from './authUser';
 
 interface LoginParams {
   userModel: string;
 }
 
-const login = async (req: AuthenticatedRequest, res: Response, { userModel }: LoginParams) => {
+/**
+ * Login Controller
+ * 
+ * IMPORTANT: This endpoint does NOT require authentication.
+ * Users call this endpoint to OBTAIN an authentication token.
+ * 
+ * @param req - Request object (NO auth token required)
+ * @param res - Response object
+ * @param userModel - The user model name (e.g., 'Admin')
+ */
+const login = async (req: Request, res: Response, { userModel }: LoginParams) => {
   const UserPasswordModel = mongoose.model(userModel + 'Password');
   const UserModel = mongoose.model(userModel);
   const { email, password } = req.body;

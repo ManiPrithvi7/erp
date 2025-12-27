@@ -3,11 +3,24 @@ import mongoose from 'mongoose';
 import { AuthenticatedRequest } from '@/types';
 import { calculate } from '@/helpers';
 import { increaseBySettingKey } from '@/middlewares/settings';
+import schema from './schemaValidate';
 
 const Model = mongoose.model('Quote');
 
 const create = async (req: AuthenticatedRequest, res: Response) => {
-  const { items = [], taxRate = 0, discount = 0 } = req.body;
+  let body = req.body;
+
+  const { error, value } = schema.validate(body);
+  if (error) {
+    const { details } = error;
+    return res.status(400).json({
+      success: false,
+      result: null,
+      message: details[0]?.message,
+    });
+  }
+
+  const { items = [], taxRate = 0, discount = 0 } = value;
 
   // default
   let subTotal = 0;
@@ -24,8 +37,6 @@ const create = async (req: AuthenticatedRequest, res: Response) => {
   });
   taxTotal = calculate.multiply(subTotal, taxRate / 100);
   total = calculate.add(subTotal, taxTotal);
-
-  const body = req.body;
 
   body['subTotal'] = subTotal;
   body['taxTotal'] = taxTotal;
