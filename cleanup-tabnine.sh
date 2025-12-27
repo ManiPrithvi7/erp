@@ -14,3 +14,5 @@ echo "New size: $(du -sh ~/.local/share/TabNine 2>/dev/null | cut -f1)"
 echo "Note: TabNine will rebuild its cache when you use it again."
 
 
+
+

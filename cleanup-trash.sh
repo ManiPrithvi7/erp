@@ -16,3 +16,5 @@ echo "✅ Trash cleaned!"
 echo "New size: $(du -sh ~/.local/share/Trash 2>/dev/null | cut -f1)"
 
 
+
+
